@@ -52,7 +52,6 @@ int Read_Integrator(XML_NODE node, void *config, __attribute__((unused)) void *c
     integrator_config[s]->level = 0;
     integrator_config[s]->enabled = 0;
     integrator_config[s]->max_log = 165;
-    integrator_config[s]->failed_attemps = 0;
 
     while(node[i])
     {
