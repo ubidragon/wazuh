@@ -17,6 +17,8 @@
 #define ARGV0 "ossec-integrator"
 #endif
 
+#define INTEGRATORCONFIG_MAX_FAILED_ATTEMPS 3 // max value for IntegratorConfig.failed_attemps value
+
 /* Integrator Config Structure */
 typedef struct _IntegratorConfig
 {
@@ -24,6 +26,7 @@ typedef struct _IntegratorConfig
     unsigned int enabled;
     unsigned int *rule_id;
     unsigned int max_log;
+    unsigned int failed_attemps; // counter for failure attemps
 
     char *name;
     char *apikey;

@@ -392,6 +392,8 @@ void OS_IntegratorD(IntegratorConfig **integrator_config)
 
                 if(cmd) {
                     wfd_t * wfd = wpopenv(integrator_config[s]->path, cmd, W_BIND_STDOUT | W_BIND_STDERR | W_CHECK_WRITE);
+                    
+                    unsigned int successfull_run = 0;
 
                     if(wfd){
                         char buffer[4096];
@@ -405,17 +407,27 @@ void OS_IntegratorD(IntegratorConfig **integrator_config)
                         if (wstatus == 127) {
                             // 127 means error in exec
                             merror("Couldn't execute command (%s). Check file and permissions.", exec_full_cmd);
-                            integrator_config[s]->enabled = 0;
                         } else if(wstatus != 0){
                             merror("Unable to run integration for %s -> %s",  integrator_config[s]->name, integrator_config[s]->path);
-                            merror("While running %s -> %s. Output: %s ",  integrator_config[s]->name, integrator_config[s]->path,buffer);
-                            integrator_config[s]->enabled = 0;
+                            merror("While running %s -> %s. Output: %s ",  integrator_config[s]->name, integrator_config[s]->path, buffer);
                         } else {
+                            successfull_run = 1;
                             mdebug1("Command ran successfully");
                         }
                     } else {
                         merror("Could not launch command %s (%d)", strerror(errno), errno);
-                        integrator_config[s]->enabled = 0;
+                    }
+
+                    if(!successfull_run){
+                        integrator_config[s]->failed_attemps++;
+                        mwarn("Command ran failed! Attemp %d of %d", integrator_config[s]->failed_attemps, INTEGRATORCONFIG_MAX_FAILED_ATTEMPS);
+                        if ( integrator_config[s]->failed_attemps == INTEGRATORCONFIG_MAX_FAILED_ATTEMPS ) {
+                            // Disable integrator after INTEGRATORCONFIG_MAX_FAILED_ATTEMPS consecutive failed attemps
+                            integrator_config[s]->enabled = 0;
+                            merror("Disabled integrator %s after %d unsuccessfull retries.",  integrator_config[s]->name,  INTEGRATORCONFIG_MAX_FAILED_ATTEMPS);
+                        }
+                    } else {
+                        integrator_config[s]->failed_attemps = 0;
                     }
 
                     free_strarray(cmd);
