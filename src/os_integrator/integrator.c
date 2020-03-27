@@ -393,8 +393,6 @@ void OS_IntegratorD(IntegratorConfig **integrator_config)
                 if(cmd) {
                     wfd_t * wfd = wpopenv(integrator_config[s]->path, cmd, W_BIND_STDOUT | W_BIND_STDERR | W_CHECK_WRITE);
                     
-                    unsigned int successfull_run = 0;
-
                     if(wfd){
                         char buffer[4096];
                         while (fgets(buffer, sizeof(buffer), wfd->file)) {
@@ -412,7 +410,6 @@ void OS_IntegratorD(IntegratorConfig **integrator_config)
                                 merror("While running %s -> %s. Output: %s ",  integrator_config[s]->name, integrator_config[s]->path, buffer);
                                 merror("Exit status was: %d", wstatus);
                             } else {
-                                successfull_run = 1;
                                 mdebug1("Command ran successfully");
                             }
                         } else {
