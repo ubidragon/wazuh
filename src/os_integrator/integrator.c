@@ -392,7 +392,7 @@ void OS_IntegratorD(IntegratorConfig **integrator_config)
 
                 if(cmd) {
                     wfd_t * wfd = wpopenv(integrator_config[s]->path, cmd, W_BIND_STDOUT | W_BIND_STDERR | W_CHECK_WRITE);
-                    
+
                     if(wfd){
                         char buffer[4096];
                         while (fgets(buffer, sizeof(buffer), wfd->file)) {
