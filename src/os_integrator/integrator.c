@@ -423,18 +423,6 @@ void OS_IntegratorD(IntegratorConfig **integrator_config)
                         merror("Could not launch command %s (%d)", strerror(errno), errno);
                     }
 
-                    if(!successfull_run){
-                        integrator_config[s]->failed_attemps++;
-                        mwarn("Command execution failed! Attempt %d of %d", integrator_config[s]->failed_attemps, INTEGRATORCONFIG_MAX_FAILED_ATTEMPS);
-                        if ( integrator_config[s]->failed_attemps == INTEGRATORCONFIG_MAX_FAILED_ATTEMPS ) {
-                            // Disable integrator after INTEGRATORCONFIG_MAX_FAILED_ATTEMPS consecutive failed attemps
-                            integrator_config[s]->enabled = 0;
-                            merror("Disabling integrator %s after %d unsuccessful retries.",  integrator_config[s]->name,  INTEGRATORCONFIG_MAX_FAILED_ATTEMPS);
-                        }
-                    } else {
-                        integrator_config[s]->failed_attemps = 0;
-                    }
-
                     free_strarray(cmd);
                 }
             }
