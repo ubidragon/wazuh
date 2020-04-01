@@ -12,13 +12,16 @@
 
 #include <openssl/ssl.h>
 #include <openssl/ossl_typ.h>
+
+#define ENROLLMENT_WRONG_CONFIGURATION -1
+#define ENROLLMENT_CONNECTION_FAILURE -2
 /*
  * Struct that defines the enrollment certificate configuration
  * Client Enrollment methods:
  * 1. Simple verification (only chipers needed)
  * 2. Password (uses password param)
  * 3. Manger Verificatiion (uses ca_cert param) 
- * 4. Manger and Agent Verification (uses ca_cert, agent_cert and agent_key params)
+ * 4. Manger and Agent Verification (uses agent_cert and agent_key params)
  * @param ciphters chipers string (default DEFAULT_CIPHERS)
  * @param agent_cert Agent Certificate (null if not used)
  * @param agent_key Agent Key (null if not used)
@@ -40,12 +43,12 @@ typedef struct _CERTIFICATE_CFG {
  * @param cfg Certificate configuration
  * @param auto_method 0 for TLS v1.2 only (Default)
  *                    1 for Auto negotiate the most secure common SSL/TLS method with the client.
- * @return  0 if successfull
- *         -1 on invalid configuration
- *         -2 connection error
+ * @return  socket_id >= 0 if successfull
+ *         ENROLLMENT_WRONG_CONFIGURATION(-1) on invalid configuration
+ *         ENROLLMENT_CONNECTION_FAILURE(-2) connection error
  */
 int start_enrollemnt_connection(
-        SSL* ssl,
+        SSL** ssl,
         const char* hostname, 
         const int port, 
         const CERTIFICATE_CFG* cfg, 

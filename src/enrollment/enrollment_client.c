@@ -20,7 +20,7 @@ static void _concat_group(char *buff, const char* centralized_group);
 static int _concat_src_ip(char *buff, const char* sender_ip);
 
 int start_enrollemnt_connection(
-    SSL* ssl,
+    SSL** ssl,
     const char* hostname, 
     const int port,
     const CERTIFICATE_CFG* cfg, 
@@ -30,41 +30,42 @@ int start_enrollemnt_connection(
     /* Translate hostname to an ip_adress */
     if (!ip_address) {
         merror("Could not resolve hostname: %s\n", hostname);
-        return -1;
+        return ENROLLMENT_WRONG_CONFIGURATION;
     }
 
     /* Start SSL */
     SSL_CTX *ctx = os_ssl_keys(0, NULL, cfg->ciphers, cfg->agent_cert, cfg->agent_key, cfg->ca_cert, auto_method);
     if (!ctx) {
-        merror("SSL error. Exiting.");
-        return -1;
+        merror("Could not set up SSL connection! Check ceritification configuration.");
+        return ENROLLMENT_WRONG_CONFIGURATION;
     }
 
     /* Connect via TCP */
     int sock = OS_ConnectTCP((u_int16_t) port, ip_address, 0);
     if (sock <= 0) {
         merror("Unable to connect to %s:%d", ip_address, port);
-        return -1;
+        return ENROLLMENT_CONNECTION_FAILURE;
     }
 
     /* Connect the SSL socket */
-    ssl = SSL_new(ctx);
+    *ssl = SSL_new(ctx);
     BIO * sbio = BIO_new_socket(sock, BIO_NOCLOSE);
-    SSL_set_bio(ssl, sbio, sbio);
+    SSL_set_bio(*ssl, sbio, sbio);
 
     ERR_clear_error();
-    int ret = SSL_connect(ssl);
+    int ret = SSL_connect(*ssl);
     if (ret <= 0) {
-        merror("SSL error (%d). Connection refused by the manager. Maybe the port specified is incorrect. Exiting.", SSL_get_error(ssl, ret));
+        merror("SSL error (%d). Connection refused by the manager. Maybe the port specified is incorrect. Exiting.", SSL_get_error(*ssl, ret));
         ERR_print_errors_fp(stderr);  // This function empties the error queue
-        return -2;
+        return ENROLLMENT_CONNECTION_FAILURE;
     }
 
     minfo("Connected to %s:%d", ip_address, port);
 
-    _verify_ca_certicificate(ssl, cfg->ca_cert, hostname);
+    _verify_ca_certicificate(*ssl, cfg->ca_cert, hostname);
 
-    return 0;
+    SSL_CTX_free(ctx);
+    return sock;
 }
 
 int send_enrollment_message(
