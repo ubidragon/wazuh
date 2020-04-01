@@ -1472,8 +1472,12 @@ ossec-makelists: analysisd/makelists-live.o ${filter-out analysisd/state-live.o,
 	${OSSEC_CCBIN} ${OSSEC_LDFLAGS} $^ ${OSSEC_LIBS} -o $@
 
 ### enrollemnt ###
-enrollment/enrollment_client.o: enrollment/enrollment_client.c
-	${OSSEC_CC} ${OSSEC_CFLAGS} -I./enrollemnt -c $^ ${OSSEC_LIBS} -o $@
+enrollment_c := $(wildcard enrollment/*.c)
+enrollment_o := $(enrollment_c:.c=.o)
+
+enrollment/%.o: enrollment/%.c
+	${OSSEC_CC} ${OSSEC_CFLAGS} -c $^ ${OSSEC_LIBS} -o $@
+
 
 
 ### wazuh-modulesd ##
@@ -1779,6 +1783,7 @@ clean-internals:
 	rm -f ${SELINUX_POLICY}
 	rm -f ${wrappers_syscheck_o}
 	rm -f ${wrappers_shared_o}
+	rm -f ${enrollment_o}
 
 clean-framework:
 	${MAKE} -C ../framework clean

@@ -14,8 +14,13 @@
 #include "os_net/os_net.h"
 #include "shared.h"
 
+#ifdef UNIT_TESTING
+/* Remove static qualifier when unit testing */
+#define static
 
-static void _verify_ca_certicificate(const SSL *ssl, const char *ca_cert, const char *hostname);
+#endif
+
+static void _verify_ca_certificate(const SSL *ssl, const char *ca_cert, const char *hostname);
 static void _concat_group(char *buff, const char* centralized_group);
 static int _concat_src_ip(char *buff, const char* sender_ip);
 
@@ -62,7 +67,7 @@ int start_enrollemnt_connection(
 
     minfo("Connected to %s:%d", ip_address, port);
 
-    _verify_ca_certicificate(*ssl, cfg->ca_cert, hostname);
+    _verify_ca_certificate(*ssl, cfg->ca_cert, hostname);
 
     SSL_CTX_free(ctx);
     return sock;
@@ -129,7 +134,7 @@ int send_enrollment_message(
  * @param ca_cert cerificate to verify
  * @param hostname 
  * */
-static void _verify_ca_certicificate(const SSL *ssl, const char *ca_cert, const char *hostname) {
+static void _verify_ca_certificate(const SSL *ssl, const char *ca_cert, const char *hostname) {
     if (ca_cert) {
         minfo("Verifying manager's certificate");
         if (check_x509_cert(ssl, hostname) != VERIFY_TRUE) {
