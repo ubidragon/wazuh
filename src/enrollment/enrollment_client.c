@@ -10,21 +10,26 @@
 
 #include "enrollment_client.h"
 #include "os_auth/check_cert.h"
-#include <openssl/ssl.h>
+#include "os_auth/auth.h"
+#include "os_net/os_net.h"
+#include "shared.h"
+
 
 static void _verify_ca_certicificate(const SSL *ssl, const char *ca_cert, const char *hostname);
+static void _concat_group(char *buff, const char* centralized_group);
+static int _concat_src_ip(char *buff, const char* sender_ip);
 
 int start_enrollemnt_connection(
     SSL* ssl,
     const char* hostname, 
-    const char* port,
+    const int port,
     const CERTIFICATE_CFG* cfg, 
     const int auto_method) 
 {
-    const char *ip_adress = OS_GetHost(hostname, 3);
+    const char *ip_address = OS_GetHost(hostname, 3);
     /* Translate hostname to an ip_adress */
-    if (!ipaddress) {
-        merror("Could not resolve hostname: %s\n", manager);
+    if (!ip_address) {
+        merror("Could not resolve hostname: %s\n", hostname);
         return -1;
     }
 
@@ -36,9 +41,9 @@ int start_enrollemnt_connection(
     }
 
     /* Connect via TCP */
-    int sock = OS_ConnectTCP(port, ipaddress, 0);
+    int sock = OS_ConnectTCP((u_int16_t) port, ip_address, 0);
     if (sock <= 0) {
-        merror("Unable to connect to %s:%d", ipaddress, port);
+        merror("Unable to connect to %s:%d", ip_address, port);
         return -1;
     }
 
@@ -55,20 +60,19 @@ int start_enrollemnt_connection(
         return -2;
     }
 
-    minfo("Connected to %s:%d", ipaddress, port);
+    minfo("Connected to %s:%d", ip_address, port);
 
-    _verify_ca_certicificate(ssl, ca_cert, hostname);
+    _verify_ca_certicificate(ssl, cfg->ca_cert, hostname);
 
     return 0;
 }
 
-void send_enrollment_message(
-        const SSL *ssl,
-        const char* hostname,
+int send_enrollment_message(
+        SSL *ssl,
         char* agent_name,
         const char* password,
         const char* centralized_group,
-        const char* sender_ip,
+        const char* sender_ip
 ) {
     /* agent_name extraction */
     if (agent_name == NULL) {
@@ -88,8 +92,8 @@ void send_enrollment_message(
     os_calloc(OS_SIZE_65536 + OS_SIZE_4096 + 1, sizeof(char), buf);
     buf[OS_SIZE_65536 + OS_SIZE_4096] = '\0';
 
-    if (authpass) {
-        snprintf(buf, 2048, "OSSEC PASS: %s OSSEC A:'%s'", authpass, agent_name);
+    if (password) {
+        snprintf(buf, 2048, "OSSEC PASS: %s OSSEC A:'%s'", password, agent_name);
     } else {
         snprintf(buf, 2048, "OSSEC A:'%s'", agent_name);
     }
@@ -141,25 +145,25 @@ static void _concat_group(char *buff, const char* centralized_group) {
     char * opt_buf = NULL;
     os_calloc(OS_SIZE_65536, sizeof(char), opt_buf);
     snprintf(opt_buf,OS_SIZE_65536," G:'%s'",centralized_group);
-    strncat(buf,opt_buf,OS_SIZE_65536);
+    strncat(buff,opt_buf,OS_SIZE_65536);
     free(opt_buf);
 }
 
 /**
  * Concats the IP part of the enrollment message
- * @param buf buffer where the IP section will be concatenated
+ * @param buff buffer where the IP section will be concatenated
  * @param sender_ip Sender IP, if null it will be filled with "src"
  * @return 0 on success
  *        -1 if ip is invalid 
  */
-static int _concat_src_ip(char *buf, const char* sender_ip) {
+static int _concat_src_ip(char *buff, const char* sender_ip) {
     if(sender_ip){
 		/* Check if this is strictly an IP address using a regex */
 		if (OS_IsValidIP(sender_ip, NULL))
 		{
 			char opt_buf[256] = {0};
 			snprintf(opt_buf,254," IP:'%s'",sender_ip);
-			strncat(buf,opt_buf,254);
+			strncat(buff,opt_buf,254);
 		} else {
 			merror("Invalid IP address provided for sender IP.");
 			return -1;
@@ -167,7 +171,7 @@ static int _concat_src_ip(char *buf, const char* sender_ip) {
     } else {
         char opt_buf[10] = {0};
         snprintf(opt_buf,10," IP:'src'");
-        strncat(buf,opt_buf,10);
+        strncat(buff,opt_buf,10);
     }
 
     return 0;

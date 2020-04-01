@@ -1349,7 +1349,7 @@ os_auth_o := $(os_auth_c:.c=.o)
 os_auth/%.o: os_auth/%.c
 	${OSSEC_CC} ${OSSEC_CFLAGS} -I./os_auth -DARGV0=\"ossec-authd\" -c $^ -o $@
 
-agent-auth: addagent/validate.o os_auth/main-client.o os_auth/ssl.o os_auth/check_cert.o
+agent-auth: addagent/validate.o os_auth/main-client.o os_auth/ssl.o os_auth/check_cert.o enrollment/enrollment_client.o
 	${OSSEC_CCBIN} ${OSSEC_LDFLAGS} $^ ${OSSEC_LIBS} -o $@
 
 ossec-authd: addagent/validate.o os_auth/main-server.o os_auth/local-server.o os_auth/ssl.o os_auth/check_cert.o os_auth/config.o os_auth/authcom.o
@@ -1470,6 +1470,11 @@ ossec-analysisd: ${analysisd_live_o} analysisd/analysisd-live.o ${output_o} ${fo
 
 ossec-makelists: analysisd/makelists-live.o ${filter-out analysisd/state-live.o, ${analysisd_live_o}} ${format_o} alerts.a cdb.a decoders-live.a
 	${OSSEC_CCBIN} ${OSSEC_LDFLAGS} $^ ${OSSEC_LIBS} -o $@
+
+### enrollemnt ###
+enrollment/enrollment_client.o: enrollment/enrollment_client.c
+	${OSSEC_CC} ${OSSEC_CFLAGS} -I./enrollemnt -c $^ ${OSSEC_LIBS} -o $@
+
 
 ### wazuh-modulesd ##
 

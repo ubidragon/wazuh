@@ -10,6 +10,8 @@
 #ifndef ENROLLMENT_CLIENT_H
 #define ENROLLMENT_CLIENT_H
 
+#include <openssl/ssl.h>
+#include <openssl/ossl_typ.h>
 /*
  * Struct that defines the enrollment certificate configuration
  * Client Enrollment methods:
@@ -45,7 +47,7 @@ typedef struct _CERTIFICATE_CFG {
 int start_enrollemnt_connection(
         SSL* ssl,
         const char* hostname, 
-        const char* port, 
+        const int port, 
         const CERTIFICATE_CFG* cfg, 
         const int auto_method
 );
@@ -60,13 +62,12 @@ int start_enrollemnt_connection(
  * @return   0 if message is sent successfully
  *          -1 if message cannot be sent
  */
-void send_enrollment_message(
-        const SSL *ssl,
-        const char* hostname,
+int send_enrollment_message(
+        SSL *ssl,
         char* agent_name,
         const char* password,
         const char* centralized_group,
-        const char* sender_ip,
+        const char* sender_ip
 );
 
 #endif
