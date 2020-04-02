@@ -301,10 +301,10 @@ int main(int argc, char **argv)
         .agent_key = agent_key,
         .ca_cert = ca_cert
     };
-    sock = start_enrollemnt_connection(&ssl,manager, port, &cfg, auto_method); 
+    sock = w_enrollment_init(&ssl,manager, port, &cfg, auto_method); 
     
     if (sock >= 0) {
-        send_enrollment_message(ssl,agentname,authpass,centralized_group,sender_ip);
+        w_enrollment_send_message(ssl,agentname,authpass,centralized_group,sender_ip);
         minfo("Send request to manager. Waiting for reply.");
 
         while (1) {

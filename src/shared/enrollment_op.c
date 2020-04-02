@@ -29,7 +29,7 @@ static void _verify_ca_certificate(const SSL *ssl, const char *ca_cert, const ch
 static void _concat_group(char *buff, const char* centralized_group);
 static int _concat_src_ip(char *buff, const char* sender_ip);
 
-int start_enrollemnt_connection(
+int w_enrollment_init(
     SSL** ssl,
     const char* hostname, 
     const int port,
@@ -79,7 +79,7 @@ int start_enrollemnt_connection(
     return sock;
 }
 
-int send_enrollment_message(
+int w_enrollment_send_message(
         SSL *ssl,
         char* agent_name,
         const char* password,

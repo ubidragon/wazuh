@@ -47,7 +47,7 @@ typedef struct _CERTIFICATE_CFG {
  *         ENROLLMENT_WRONG_CONFIGURATION(-1) on invalid configuration
  *         ENROLLMENT_CONNECTION_FAILURE(-2) connection error
  */
-int start_enrollemnt_connection(
+int w_enrollment_init(
         SSL** ssl,
         const char* hostname, 
         const int port, 
@@ -65,7 +65,7 @@ int start_enrollemnt_connection(
  * @return   0 if message is sent successfully
  *          -1 if message cannot be sent
  */
-int send_enrollment_message(
+int w_enrollment_send_message(
         SSL *ssl,
         char* agent_name,
         const char* password,

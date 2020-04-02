@@ -207,8 +207,8 @@ void test_verificy_ca_certificate_valid_certificate(void **state) {
     _verify_ca_certificate(ssl, "GOOD_CERTIFICATE", "hostname");
 }
 /**********************************************/
-/********** start_enrollemnt_connection *******/
-void test_start_enrollment_connection_invalid_hostname(void **state) {
+/********** w_enrollment_init *******/
+void test_w_enrollment_init_invalid_hostname(void **state) {
     SSL *ssl = NULL;
     CERTIFICATE_CFG cfg = {0};
     const char *hostname = "invalid_hostname";
@@ -217,11 +217,11 @@ void test_start_enrollment_connection_invalid_hostname(void **state) {
     will_return(__wrap_OS_GetHost, NULL);
     expect_string(__wrap__merror, formatted_msg, "Could not resolve hostname: invalid_hostname\n");
 
-    int ret = start_enrollemnt_connection(&ssl, hostname, 1234, &cfg, 0);
+    int ret = w_enrollment_init(&ssl, hostname, 1234, &cfg, 0);
     assert_int_equal(ret, ENROLLMENT_WRONG_CONFIGURATION);
 }
 
-void test_start_enrollment_connection_could_not_setup(void **state) {
+void test_w_enrollment_init_could_not_setup(void **state) {
     SSL *ssl = NULL;
     CERTIFICATE_CFG cfg = {
         .ciphers = DEFAULT_CIPHERS, 
@@ -243,11 +243,11 @@ void test_start_enrollment_connection_could_not_setup(void **state) {
     will_return(__wrap_os_ssl_keys, NULL);
 
     expect_string(__wrap__merror, formatted_msg, "Could not set up SSL connection! Check ceritification configuration.");
-    int ret = start_enrollemnt_connection(&ssl, hostname, 1234, &cfg, 0);
+    int ret = w_enrollment_init(&ssl, hostname, 1234, &cfg, 0);
     assert_int_equal(ret, ENROLLMENT_WRONG_CONFIGURATION);
 }
 
-void test_start_enrollment_connection_socket_error(void **state) {
+void test_w_enrollment_init_socket_error(void **state) {
     SSL *ssl = NULL;
     SSL_CTX *ctx = get_ssl_context(DEFAULT_CIPHERS, 0);
     CERTIFICATE_CFG cfg = {
@@ -276,11 +276,11 @@ void test_start_enrollment_connection_socket_error(void **state) {
     will_return(__wrap_OS_ConnectTCP, -1);
 
     expect_string(__wrap__merror, formatted_msg, "Unable to connect to 127.0.0.1:1234");
-    int ret = start_enrollemnt_connection(&ssl, hostname, 1234, &cfg, 0);
+    int ret = w_enrollment_init(&ssl, hostname, 1234, &cfg, 0);
     assert_int_equal(ret, ENROLLMENT_CONNECTION_FAILURE);
 }
 
-void test_start_enrollment_connection_SSL_connect_error(void **state) {
+void test_w_enrollment_init_SSL_connect_error(void **state) {
     SSL *ssl = NULL;
     SSL_CTX *ctx = get_ssl_context(DEFAULT_CIPHERS, 0);
     CERTIFICATE_CFG cfg = {
@@ -316,11 +316,11 @@ void test_start_enrollment_connection_SSL_connect_error(void **state) {
     will_return(__wrap_SSL_get_error, 100);
     expect_string(__wrap__merror, formatted_msg, "SSL error (100). Connection refused by the manager. Maybe the port specified is incorrect. Exiting.");
 
-    int ret = start_enrollemnt_connection(&ssl, hostname, 1234, &cfg, 0);
+    int ret = w_enrollment_init(&ssl, hostname, 1234, &cfg, 0);
     assert_int_equal(ret, ENROLLMENT_CONNECTION_FAILURE);
 }
 
-void test_start_enrollment_connection_success(void **state) {
+void test_w_enrollment_init_success(void **state) {
     SSL *ssl = NULL;
     SSL_CTX *ctx = get_ssl_context(DEFAULT_CIPHERS, 0);
     CERTIFICATE_CFG cfg = {
@@ -361,7 +361,7 @@ void test_start_enrollment_connection_success(void **state) {
     will_return(__wrap_check_x509_cert, VERIFY_TRUE);
     expect_string(__wrap__minfo, formatted_msg, "Verifying manager's certificate");
 
-    int ret = start_enrollemnt_connection(&ssl, hostname, 1234, &cfg, 0);
+    int ret = w_enrollment_init(&ssl, hostname, 1234, &cfg, 0);
     assert_int_equal(ret, 5);
 }
 
@@ -384,12 +384,12 @@ int main()
         cmocka_unit_test(test_verify_ca_certificate_no_certificate),
         cmocka_unit_test(test_verificy_ca_certificate_invalid_certificate),
         cmocka_unit_test(test_verificy_ca_certificate_valid_certificate),
-        // start_enrollemnt_connection
-        cmocka_unit_test(test_start_enrollment_connection_invalid_hostname),
-        cmocka_unit_test(test_start_enrollment_connection_could_not_setup),
-        cmocka_unit_test(test_start_enrollment_connection_socket_error),
-        cmocka_unit_test(test_start_enrollment_connection_SSL_connect_error),
-        cmocka_unit_test(test_start_enrollment_connection_success)
+        // w_enrollment_init
+        cmocka_unit_test(test_w_enrollment_init_invalid_hostname),
+        cmocka_unit_test(test_w_enrollment_init_could_not_setup),
+        cmocka_unit_test(test_w_enrollment_init_socket_error),
+        cmocka_unit_test(test_w_enrollment_init_SSL_connect_error),
+        cmocka_unit_test(test_w_enrollment_init_success)
     };
 
     return cmocka_run_group_tests(tests, NULL, NULL);
