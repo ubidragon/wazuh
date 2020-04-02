@@ -23,7 +23,8 @@ if(${TARGET} STREQUAL "agent")
     # Tests
     list(APPEND enrollment_test_names "test_enrollment_client")
     list(APPEND enrollment_test_flags "-Wl,--wrap=OS_IsValidIP,--wrap=_merror,--wrap=_mwarn,--wrap=check_x509_cert \
-                                       -Wl,--wrap=_minfo")
+                                       -Wl,--wrap=_minfo,--wrap=OS_GetHost,--wrap=os_ssl_keys,--wrap=OS_ConnectTCP \
+                                       -Wl,--wrap=SSL_new,--wrap=SSL_connect,--wrap=SSL_get_error,--wrap=SSL_set_bio")
 
     # Compilig tests
     list(LENGTH enrollment_test_names count)

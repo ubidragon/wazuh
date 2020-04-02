@@ -8,6 +8,7 @@
 #include "shared.h"
 #include "enrollment/enrollment_client.h"
 #include "os_auth/check_cert.h"
+#include "os_auth/auth.h"
 
 extern int _concat_src_ip(char *buff, const char* sender_ip);
 extern void _concat_group(char *buff, const char* centralized_group);
@@ -57,6 +58,51 @@ int __wrap_check_x509_cert(const SSL *ssl, const char *manager) {
     check_expected_ptr(ssl);
     check_expected(manager);
     return mock_type(int);
+}
+
+char *__wrap_OS_GetHost(const char *host, unsigned int attempts) {
+    check_expected(host);
+    return mock_ptr_type(char *);
+}
+
+SSL_CTX *__wrap_os_ssl_keys(int is_server, const char *os_dir, const char *ciphers, const char *cert, const char *key, const char *ca_cert, int auto_method)
+{
+    check_expected(is_server);
+    check_expected(os_dir);
+    check_expected(ciphers);
+    check_expected(cert);
+    check_expected(key);
+    check_expected(ca_cert);
+    check_expected(auto_method);
+    return mock_ptr_type(SSL_CTX *);
+}
+
+extern SSL *__real_SSL_new(SSL_CTX *ctx);
+SSL *__wrap_SSL_new(SSL_CTX *ctx) {
+    check_expected(ctx);
+    return mock_ptr_type(SSL *);
+}
+
+int __wrap_SSL_connect(SSL *s){
+    return mock_type(int);
+}
+
+int __wrap_SSL_get_error(const SSL *s, int i)
+{
+    check_expected(i);
+    return mock_type(int);
+}
+
+int __wrap_OS_ConnectTCP(u_int16_t _port, const char *_ip, int ipv6)
+{
+    check_expected(_port);
+    check_expected(_ip);
+    check_expected(ipv6);
+    return mock_type(int);
+}
+
+void __wrap_SSL_set_bio(SSL *s, BIO *rbio, BIO *wbio) {
+    return;    
 }
 
 // Setup
@@ -162,7 +208,165 @@ void test_verificy_ca_certificate_valid_certificate(void **state) {
     _verify_ca_certificate(ssl, "GOOD_CERTIFICATE", "hostname");
 }
 /**********************************************/
+/********** start_enrollemnt_connection *******/
+void test_start_enrollment_connection_invalid_hostname(void **state) {
+    SSL *ssl = NULL;
+    CERTIFICATE_CFG cfg = {0};
+    const char *hostname = "invalid_hostname";
+    
+    expect_string(__wrap_OS_GetHost, host, hostname);
+    will_return(__wrap_OS_GetHost, NULL);
+    expect_string(__wrap__merror, formatted_msg, "Could not resolve hostname: invalid_hostname\n");
 
+    int ret = start_enrollemnt_connection(&ssl, hostname, 1234, &cfg, 0);
+    assert_int_equal(ret, ENROLLMENT_WRONG_CONFIGURATION);
+}
+
+void test_start_enrollment_connection_could_not_setup(void **state) {
+    SSL *ssl = NULL;
+    CERTIFICATE_CFG cfg = {
+        .ciphers = DEFAULT_CIPHERS, 
+        .agent_cert = "CERT",
+        .agent_key = "KEY",
+        .ca_cert = "CA_CERT",
+    };
+    const char *hostname = "invalid_hostname";
+    
+    expect_string(__wrap_OS_GetHost, host, hostname);
+    will_return(__wrap_OS_GetHost, "127.0.0.1");
+    expect_value(__wrap_os_ssl_keys, is_server, 0);
+    expect_value(__wrap_os_ssl_keys, os_dir, NULL);
+    expect_string(__wrap_os_ssl_keys, ciphers, DEFAULT_CIPHERS);
+    expect_string(__wrap_os_ssl_keys, cert, "CERT");
+    expect_string(__wrap_os_ssl_keys, key, "KEY");
+    expect_string(__wrap_os_ssl_keys, ca_cert, "CA_CERT");
+    expect_value(__wrap_os_ssl_keys, auto_method, 0);
+    will_return(__wrap_os_ssl_keys, NULL);
+
+    expect_string(__wrap__merror, formatted_msg, "Could not set up SSL connection! Check ceritification configuration.");
+    int ret = start_enrollemnt_connection(&ssl, hostname, 1234, &cfg, 0);
+    assert_int_equal(ret, ENROLLMENT_WRONG_CONFIGURATION);
+}
+
+void test_start_enrollment_connection_socket_error(void **state) {
+    SSL *ssl = NULL;
+    SSL_CTX *ctx = get_ssl_context(DEFAULT_CIPHERS, 0);
+    CERTIFICATE_CFG cfg = {
+        .ciphers = DEFAULT_CIPHERS, 
+        .agent_cert = "CERT",
+        .agent_key = "KEY",
+        .ca_cert = "CA_CERT",
+    };
+    const char *hostname = "invalid_hostname";
+    // GetHost
+    expect_string(__wrap_OS_GetHost, host, hostname);
+    will_return(__wrap_OS_GetHost, "127.0.0.1");
+    // os_ssl_keys
+    expect_value(__wrap_os_ssl_keys, is_server, 0);
+    expect_value(__wrap_os_ssl_keys, os_dir, NULL);
+    expect_string(__wrap_os_ssl_keys, ciphers, DEFAULT_CIPHERS);
+    expect_string(__wrap_os_ssl_keys, cert, "CERT");
+    expect_string(__wrap_os_ssl_keys, key, "KEY");
+    expect_string(__wrap_os_ssl_keys, ca_cert, "CA_CERT");
+    expect_value(__wrap_os_ssl_keys, auto_method, 0);
+    will_return(__wrap_os_ssl_keys, &ctx);
+    // OS_ConnectTCP
+    expect_value(__wrap_OS_ConnectTCP, _port, 1234);
+    expect_string(__wrap_OS_ConnectTCP, _ip, "127.0.0.1");
+    expect_value(__wrap_OS_ConnectTCP, ipv6, 0);
+    will_return(__wrap_OS_ConnectTCP, -1);
+
+    expect_string(__wrap__merror, formatted_msg, "Unable to connect to 127.0.0.1:1234");
+    int ret = start_enrollemnt_connection(&ssl, hostname, 1234, &cfg, 0);
+    assert_int_equal(ret, ENROLLMENT_CONNECTION_FAILURE);
+}
+
+void test_start_enrollment_connection_SSL_connect_error(void **state) {
+    SSL *ssl = NULL;
+    SSL_CTX *ctx = get_ssl_context(DEFAULT_CIPHERS, 0);
+    CERTIFICATE_CFG cfg = {
+        .ciphers = DEFAULT_CIPHERS, 
+        .agent_cert = "CERT",
+        .agent_key = "KEY",
+        .ca_cert = "CA_CERT",
+    };
+    const char *hostname = "invalid_hostname";
+    // GetHost
+    expect_string(__wrap_OS_GetHost, host, hostname);
+    will_return(__wrap_OS_GetHost, "127.0.0.1");
+    // os_ssl_keys
+    expect_value(__wrap_os_ssl_keys, is_server, 0);
+    expect_value(__wrap_os_ssl_keys, os_dir, NULL);
+    expect_string(__wrap_os_ssl_keys, ciphers, DEFAULT_CIPHERS);
+    expect_string(__wrap_os_ssl_keys, cert, "CERT");
+    expect_string(__wrap_os_ssl_keys, key, "KEY");
+    expect_string(__wrap_os_ssl_keys, ca_cert, "CA_CERT");
+    expect_value(__wrap_os_ssl_keys, auto_method, 0);
+    will_return(__wrap_os_ssl_keys, ctx);
+    // OS_ConnectTCP
+    expect_value(__wrap_OS_ConnectTCP, _port, 1234);
+    expect_string(__wrap_OS_ConnectTCP, _ip, "127.0.0.1");
+    expect_value(__wrap_OS_ConnectTCP, ipv6, 0);
+    will_return(__wrap_OS_ConnectTCP, 5);
+    // Connect SSL
+    expect_value(__wrap_SSL_new, ctx, ctx);
+    will_return(__wrap_SSL_new, __real_SSL_new);
+    will_return(__wrap_SSL_connect, -1);
+    
+    expect_value(__wrap_SSL_get_error, i, -1);
+    will_return(__wrap_SSL_get_error, 100);
+    expect_string(__wrap__merror, formatted_msg, "SSL error (100). Connection refused by the manager. Maybe the port specified is incorrect. Exiting.");
+
+    int ret = start_enrollemnt_connection(&ssl, hostname, 1234, &cfg, 0);
+    assert_int_equal(ret, ENROLLMENT_CONNECTION_FAILURE);
+}
+
+void test_start_enrollment_connection_success(void **state) {
+    SSL *ssl = NULL;
+    SSL_CTX *ctx = get_ssl_context(DEFAULT_CIPHERS, 0);
+    CERTIFICATE_CFG cfg = {
+        .ciphers = DEFAULT_CIPHERS, 
+        .agent_cert = "CERT",
+        .agent_key = "KEY",
+        .ca_cert = "CA_CERT",
+    };
+    const char *hostname = "invalid_hostname";
+    // GetHost
+    expect_string(__wrap_OS_GetHost, host, hostname);
+    will_return(__wrap_OS_GetHost, "127.0.0.1");
+    // os_ssl_keys
+    expect_value(__wrap_os_ssl_keys, is_server, 0);
+    expect_value(__wrap_os_ssl_keys, os_dir, NULL);
+    expect_string(__wrap_os_ssl_keys, ciphers, DEFAULT_CIPHERS);
+    expect_string(__wrap_os_ssl_keys, cert, "CERT");
+    expect_string(__wrap_os_ssl_keys, key, "KEY");
+    expect_string(__wrap_os_ssl_keys, ca_cert, "CA_CERT");
+    expect_value(__wrap_os_ssl_keys, auto_method, 0);
+    will_return(__wrap_os_ssl_keys, ctx);
+    // OS_ConnectTCP
+    expect_value(__wrap_OS_ConnectTCP, _port, 1234);
+    expect_string(__wrap_OS_ConnectTCP, _ip, "127.0.0.1");
+    expect_value(__wrap_OS_ConnectTCP, ipv6, 0);
+    will_return(__wrap_OS_ConnectTCP, 5);
+    // Connect SSL
+    expect_value(__wrap_SSL_new, ctx, ctx);
+    ssl = __real_SSL_new(ctx);
+    will_return(__wrap_SSL_new, ssl);
+    will_return(__wrap_SSL_connect, 1);
+    
+    expect_string(__wrap__minfo, formatted_msg, "Connected to 127.0.0.1:1234");
+
+    // verify_ca_certificate
+    expect_value(__wrap_check_x509_cert, ssl, ssl);
+    expect_string(__wrap_check_x509_cert, manager, hostname);
+    will_return(__wrap_check_x509_cert, VERIFY_TRUE);
+    expect_string(__wrap__minfo, formatted_msg, "Verifying manager's certificate");
+
+    int ret = start_enrollemnt_connection(&ssl, hostname, 1234, &cfg, 0);
+    assert_int_equal(ret, 5);
+}
+
+/**********************************************/
 int main()
 {
     const struct CMUnitTest tests[] = 
@@ -181,6 +385,12 @@ int main()
         cmocka_unit_test(test_verify_ca_certificate_no_certificate),
         cmocka_unit_test(test_verificy_ca_certificate_invalid_certificate),
         cmocka_unit_test(test_verificy_ca_certificate_valid_certificate),
+        // start_enrollemnt_connection
+        cmocka_unit_test(test_start_enrollment_connection_invalid_hostname),
+        cmocka_unit_test(test_start_enrollment_connection_could_not_setup),
+        cmocka_unit_test(test_start_enrollment_connection_socket_error),
+        cmocka_unit_test(test_start_enrollment_connection_SSL_connect_error),
+        cmocka_unit_test(test_start_enrollment_connection_success)
     };
 
     return cmocka_run_group_tests(tests, NULL, NULL);

@@ -55,6 +55,7 @@ int start_enrollemnt_connection(
     int sock = OS_ConnectTCP((u_int16_t) port, ip_address, 0);
     if (sock <= 0) {
         merror("Unable to connect to %s:%d", ip_address, port);
+        SSL_CTX_free(ctx);
         return ENROLLMENT_CONNECTION_FAILURE;
     }
 
@@ -68,6 +69,7 @@ int start_enrollemnt_connection(
     if (ret <= 0) {
         merror("SSL error (%d). Connection refused by the manager. Maybe the port specified is incorrect. Exiting.", SSL_get_error(*ssl, ret));
         ERR_print_errors_fp(stderr);  // This function empties the error queue
+        SSL_CTX_free(ctx);
         return ENROLLMENT_CONNECTION_FAILURE;
     }
 
