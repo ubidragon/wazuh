@@ -26,7 +26,6 @@
 #include "shared.h"
 #include <openssl/ssl.h>
 #include "auth.h"
-#include "enrollment/enrollment_client.h"
 
 #undef ARGV0
 #define ARGV0 "agent-auth"

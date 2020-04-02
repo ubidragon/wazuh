@@ -1096,7 +1096,7 @@ crypto_o := ${crypto_blowfish_o} \
 
 #### libwazuh #########
 
-libwazuh.a: ${config_o} ${wmodules_dep} ${crypto_o} ${shared_o} ${os_net_o} ${os_regex_o} ${os_xml_o} ${os_zlib_o} ${WINDOWS_SHARED_WRAPPERS}
+libwazuh.a: ${config_o} ${wmodules_dep} ${crypto_o} ${shared_o} ${os_net_o} ${os_regex_o} ${os_xml_o} ${os_zlib_o} ${WINDOWS_SHARED_WRAPPERS} os_auth/ssl.o os_auth/check_cert.o
 	${OSSEC_LINK} $@ $^
 	${OSSEC_RANLIB} $@
 
@@ -1349,7 +1349,7 @@ os_auth_o := $(os_auth_c:.c=.o)
 os_auth/%.o: os_auth/%.c
 	${OSSEC_CC} ${OSSEC_CFLAGS} -I./os_auth -DARGV0=\"ossec-authd\" -c $^ -o $@
 
-agent-auth: addagent/validate.o os_auth/main-client.o os_auth/ssl.o os_auth/check_cert.o enrollment/enrollment_client.o
+agent-auth: addagent/validate.o os_auth/main-client.o os_auth/ssl.o os_auth/check_cert.o
 	${OSSEC_CCBIN} ${OSSEC_LDFLAGS} $^ ${OSSEC_LIBS} -o $@
 
 ossec-authd: addagent/validate.o os_auth/main-server.o os_auth/local-server.o os_auth/ssl.o os_auth/check_cert.o os_auth/config.o os_auth/authcom.o
@@ -1470,15 +1470,6 @@ ossec-analysisd: ${analysisd_live_o} analysisd/analysisd-live.o ${output_o} ${fo
 
 ossec-makelists: analysisd/makelists-live.o ${filter-out analysisd/state-live.o, ${analysisd_live_o}} ${format_o} alerts.a cdb.a decoders-live.a
 	${OSSEC_CCBIN} ${OSSEC_LDFLAGS} $^ ${OSSEC_LIBS} -o $@
-
-### enrollemnt ###
-enrollment_c := $(wildcard enrollment/*.c)
-enrollment_o := $(enrollment_c:.c=.o)
-
-enrollment/%.o: enrollment/%.c
-	${OSSEC_CC} ${OSSEC_CFLAGS} -c $^ ${OSSEC_LIBS} -o $@
-
-
 
 ### wazuh-modulesd ##
 
@@ -1783,7 +1774,6 @@ clean-internals:
 	rm -f ${SELINUX_POLICY}
 	rm -f ${wrappers_syscheck_o}
 	rm -f ${wrappers_shared_o}
-	rm -f ${enrollment_o}
 
 clean-framework:
 	${MAKE} -C ../framework clean

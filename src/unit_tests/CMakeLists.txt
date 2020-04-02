@@ -46,7 +46,6 @@ endif()
 
 add_subdirectory(syscheckd)
 add_subdirectory(shared)
-add_subdirectory(enrollment)
 
 # Config files
 if(${TARGET} STREQUAL "winagent")

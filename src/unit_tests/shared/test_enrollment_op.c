@@ -6,7 +6,6 @@
 #include <string.h>
 
 #include "shared.h"
-#include "enrollment/enrollment_client.h"
 #include "os_auth/check_cert.h"
 #include "os_auth/auth.h"
 

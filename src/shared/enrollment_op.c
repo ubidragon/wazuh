@@ -8,7 +8,6 @@
  * Foundation
  */
 
-#include "enrollment_client.h"
 #include "os_auth/check_cert.h"
 #include "os_auth/auth.h"
 #include "os_net/os_net.h"
@@ -55,7 +54,6 @@ int start_enrollemnt_connection(
     int sock = OS_ConnectTCP((u_int16_t) port, ip_address, 0);
     if (sock <= 0) {
         merror("Unable to connect to %s:%d", ip_address, port);
-        SSL_CTX_free(ctx);
         return ENROLLMENT_CONNECTION_FAILURE;
     }
 
