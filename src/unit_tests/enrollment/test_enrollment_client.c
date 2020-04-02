@@ -7,9 +7,11 @@
 
 #include "shared.h"
 #include "enrollment/enrollment_client.h"
+#include "os_auth/check_cert.h"
 
 extern int _concat_src_ip(char *buff, const char* sender_ip);
 extern void _concat_group(char *buff, const char* centralized_group);
+extern void _verify_ca_certificate(const SSL *ssl, const char *ca_cert, const char *hostname);
 
 /*************** WRAPS ************************/
 void __wrap__merror(const char * file, int line, const char * func, const char *msg, ...) {
@@ -23,9 +25,37 @@ void __wrap__merror(const char * file, int line, const char * func, const char *
     check_expected(formatted_msg);
 }
 
+void __wrap__mwarn(const char * file, int line, const char * func, const char *msg, ...) {
+    char formatted_msg[OS_MAXSTR];
+    va_list args;
+
+    va_start(args, msg);
+    vsnprintf(formatted_msg, OS_MAXSTR, msg, args);
+    va_end(args);
+
+    check_expected(formatted_msg);
+}
+
+void __wrap__minfo(const char * file, int line, const char * func, const char *msg, ...) {
+    char formatted_msg[OS_MAXSTR];
+    va_list args;
+
+    va_start(args, msg);
+    vsnprintf(formatted_msg, OS_MAXSTR, msg, args);
+    va_end(args);
+
+    check_expected(formatted_msg);
+}
+
 int __wrap_OS_IsValidIP(const char *ip_address, os_ip *final_ip) {
     check_expected(ip_address);
     check_expected(final_ip);
+    return mock_type(int);
+}
+
+int __wrap_check_x509_cert(const SSL *ssl, const char *manager) {
+    check_expected_ptr(ssl);
+    check_expected(manager);
     return mock_type(int);
 }
 
@@ -98,6 +128,40 @@ void test_concat_group(void **state) {
     assert_string_equal(buf, " G:'EXAMPLE_GROUP'");
 }
 /**********************************************/
+/********** _verify_ca_certificate *************/
+void test_verify_ca_certificate_null_connection(void **state) {
+    expect_assert_failure(_verify_ca_certificate(NULL, "certificate_path", "hostname"));
+}
+
+void test_verify_ca_certificate_no_certificate(void **state) {
+    SSL *ssl;
+    expect_string(__wrap__mwarn, formatted_msg, "Registering agent to unverified manager.");
+    _verify_ca_certificate(ssl, NULL, "hostname");
+}
+
+void test_verificy_ca_certificate_invalid_certificate(void **state) {
+    SSL *ssl;
+    const char *hostname = "hostname";
+    expect_value(__wrap_check_x509_cert, ssl, ssl);
+    expect_string(__wrap_check_x509_cert, manager, hostname);
+    will_return(__wrap_check_x509_cert, VERIFY_FALSE);
+
+    expect_string(__wrap__minfo, formatted_msg, "Verifying manager's certificate");
+    expect_string(__wrap__merror, formatted_msg, "Unable to verify server certificate.");
+    _verify_ca_certificate(ssl, "BAD_CERTIFICATE", "hostname");
+}
+
+void test_verificy_ca_certificate_valid_certificate(void **state) {
+    SSL *ssl;
+    const char *hostname = "hostname";
+    expect_value(__wrap_check_x509_cert, ssl, ssl);
+    expect_string(__wrap_check_x509_cert, manager, hostname);
+    will_return(__wrap_check_x509_cert, VERIFY_TRUE);
+
+    expect_string(__wrap__minfo, formatted_msg, "Verifying manager's certificate");
+    _verify_ca_certificate(ssl, "GOOD_CERTIFICATE", "hostname");
+}
+/**********************************************/
 
 int main()
 {
@@ -112,6 +176,11 @@ int main()
         cmocka_unit_test(test_concat_group_empty_buff),
         cmocka_unit_test_setup_teardown(test_concat_group_empty_group, test_setup_concats, test_teardown_concats),
         cmocka_unit_test_setup_teardown(test_concat_group, test_setup_concats, test_teardown_concats),
+        //  _verify_ca_certificate
+        cmocka_unit_test(test_verify_ca_certificate_null_connection),
+        cmocka_unit_test(test_verify_ca_certificate_no_certificate),
+        cmocka_unit_test(test_verificy_ca_certificate_invalid_certificate),
+        cmocka_unit_test(test_verificy_ca_certificate_valid_certificate),
     };
 
     return cmocka_run_group_tests(tests, NULL, NULL);

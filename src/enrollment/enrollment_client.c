@@ -141,6 +141,8 @@ int send_enrollment_message(
  * @param hostname 
  * */
 static void _verify_ca_certificate(const SSL *ssl, const char *ca_cert, const char *hostname) {
+    assert(ssl != NULL);
+    
     if (ca_cert) {
         minfo("Verifying manager's certificate");
         if (check_x509_cert(ssl, hostname) != VERIFY_TRUE) {
