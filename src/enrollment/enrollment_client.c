@@ -18,6 +18,12 @@
 /* Remove static qualifier when unit testing */
 #define static
 
+/* Replace assert with mock_assert */
+extern void mock_assert(const int result, const char* const expression,
+                        const char * const file, const int line);
+#undef assert
+#define assert(expression) \
+    mock_assert((int)(expression), #expression, __FILE__, __LINE__);
 #endif
 
 static void _verify_ca_certificate(const SSL *ssl, const char *ca_cert, const char *hostname);
@@ -148,6 +154,9 @@ static void _verify_ca_certificate(const SSL *ssl, const char *ca_cert, const ch
 
 
 static void _concat_group(char *buff, const char* centralized_group) {
+    assert(buff != NULL); // buff should not be NULL.
+    assert(centralized_group != NULL); 
+
     char * opt_buf = NULL;
     os_calloc(OS_SIZE_65536, sizeof(char), opt_buf);
     snprintf(opt_buf,OS_SIZE_65536," G:'%s'",centralized_group);
@@ -163,6 +172,8 @@ static void _concat_group(char *buff, const char* centralized_group) {
  *        -1 if ip is invalid 
  */
 static int _concat_src_ip(char *buff, const char* sender_ip) {
+    assert(buff != NULL); // buff should not be NULL.
+
     if(sender_ip){
 		/* Check if this is strictly an IP address using a regex */
 		if (OS_IsValidIP(sender_ip, NULL))
