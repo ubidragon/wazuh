@@ -14,45 +14,81 @@
 
 #define ENROLLMENT_WRONG_CONFIGURATION -1
 #define ENROLLMENT_CONNECTION_FAILURE -2
-/*
+
+/**
+ * Struct that defines the connection target
+ * @param manager_name Manager's direction or ip address
+ * @param port Manager's port
+ * @param agent_name (optional) Name of the agent. In case of NULL it will be set by enrollment message 
+ * to the local hostname
+ * @param centralized_group (optional) In case the agent belong to a group
+ * @param sender_ip (optional) IP adress or CIDR of the agent. In case of null the manager will use the source ip 
+ * */
+typedef struct _enrollment_target_cfg {
+    char *manager_name;
+    int port;
+    char *agent_name;
+    char *centralized_group;
+    char *sender_ip;
+} _enrollment_target_cfg;
+
+/**
  * Struct that defines the enrollment certificate configuration
  * Client Enrollment methods:
  * 1. Simple verification (only chipers needed)
- * 2. Password (uses password param)
- * 3. Manger Verificatiion (uses ca_cert param) 
- * 4. Manger and Agent Verification (uses agent_cert and agent_key params)
+ * 2. Password (uses authpass param)
+ * 3. Manager Verificatiion (uses ca_cert param) 
+ * 4. Manager and Agent Verification (uses agent_cert and agent_key params)
  * @param ciphters chipers string (default DEFAULT_CIPHERS)
+ * @param authpass for password verification
  * @param agent_cert Agent Certificate (null if not used)
  * @param agent_key Agent Key (null if not used)
  * @param ca_cert CA Certificate to verificate server (null if not used)
+ * @param auto_method 0 for TLS v1.2 only (Default)
+ *                    1 for Auto negotiate the most secure common SSL/TLS method with the client.
+ * 
  */
-typedef struct _CERTIFICATE_CFG {
-    const char *ciphers;
-    const char *password;
-    const char *agent_cert;
-    const char *agent_key;
-    const char *ca_cert;
-} CERTIFICATE_CFG;
+typedef struct _enrollment_cert_cfg {
+    char *ciphers;
+    char *authpass;
+    char *agent_cert;
+    char *agent_key;
+    char *ca_cert;
+    int auto_method;
+} _enrollment_cert_cfg; 
+
+/**
+ * Strcture that handles all the enrollment configuration
+ * @param target_cfg for details @see _enrollment_target_cfg
+ * @param cert_cfg for details @see _enrollment_cert_cfg
+ * @param ssl will hold the connection instance
+ *      with the manager
+ * */
+typedef struct _enrollment_cfg {
+    _enrollment_target_cfg target_cfg;
+    _enrollment_cert_cfg cert_cfg;
+    SSL *ssl;
+} enrollment_cfg;
+
+/**
+ * Initializes parameters of an enrollment_cfg structure
+ * */
+void w_enrollment_init(enrollment_cfg *cfg);
+
+/**
+ * Frees parameers of an enrollment_cfg structure
+ * */
+void w_enrollment_destroy(enrollment_cfg *cfg);
 
 /**
  * Starts an SSL conection with the manger instance
- * @param ssl Pointer to the ssl conection that will hold the connection if successfull
- * @param hostname ip adress of the server or hostname in case of CA Cert verification
- * @param port port of the server
- * @param cfg Certificate configuration
- * @param auto_method 0 for TLS v1.2 only (Default)
- *                    1 for Auto negotiate the most secure common SSL/TLS method with the client.
+ * @param cfg Enrollment configuration sturcture
+ *      @see enrollment_cfg for details
  * @return  socket_id >= 0 if successfull
  *         ENROLLMENT_WRONG_CONFIGURATION(-1) on invalid configuration
  *         ENROLLMENT_CONNECTION_FAILURE(-2) connection error
  */
-int w_enrollment_init(
-        SSL** ssl,
-        const char* hostname, 
-        const int port, 
-        const CERTIFICATE_CFG* cfg, 
-        const int auto_method
-);
+int w_enrollment_connect(enrollment_cfg *cfg);
 
 /**
  * Sends initial enrollment message

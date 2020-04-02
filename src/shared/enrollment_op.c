@@ -28,51 +28,75 @@ static void _verify_ca_certificate(const SSL *ssl, const char *ca_cert, const ch
 static void _concat_group(char *buff, const char* centralized_group);
 static int _concat_src_ip(char *buff, const char* sender_ip);
 
-int w_enrollment_init(
-    SSL** ssl,
-    const char* hostname, 
-    const int port,
-    const CERTIFICATE_CFG* cfg, 
-    const int auto_method) 
+void w_enrollment_init(enrollment_cfg *cfg) {
+    cfg->target_cfg.manager_name = NULL;
+    cfg->target_cfg.port = 0;
+    cfg->target_cfg.agent_name = NULL;
+    cfg->target_cfg.centralized_group = NULL;
+    cfg->target_cfg.sender_ip = NULL;
+    cfg->cert_cfg.ciphers = DEFAULT_CIPHERS;
+    cfg->cert_cfg.authpass = NULL;
+    cfg->cert_cfg.agent_cert = NULL;
+    cfg->cert_cfg.agent_key = NULL;
+    cfg->cert_cfg.ca_cert = NULL;
+    cfg->cert_cfg.auto_method = 0;
+    cfg->ssl = NULL;
+}
+
+void w_enrollment_destroy(enrollment_cfg *cfg) {
+    os_free(cfg->target_cfg.manager_name);
+    os_free(cfg->target_cfg.agent_name);
+    os_free(cfg->target_cfg.centralized_group);
+    os_free(cfg->target_cfg.sender_ip);
+    os_free(cfg->cert_cfg.ciphers);
+    os_free(cfg->cert_cfg.authpass);
+    os_free(cfg->cert_cfg.agent_cert);
+    os_free(cfg->cert_cfg.agent_key);
+    os_free(cfg->cert_cfg.ca_cert);
+}
+
+int w_enrollment_connect(enrollment_cfg *cfg) 
 {
-    const char *ip_address = OS_GetHost(hostname, 3);
+    const char *ip_address = OS_GetHost(cfg->target_cfg.manager_name, 3);
     /* Translate hostname to an ip_adress */
     if (!ip_address) {
-        merror("Could not resolve hostname: %s\n", hostname);
+        merror("Could not resolve hostname: %s\n", cfg->target_cfg.manager_name);
         return ENROLLMENT_WRONG_CONFIGURATION;
     }
 
     /* Start SSL */
-    SSL_CTX *ctx = os_ssl_keys(0, NULL, cfg->ciphers, cfg->agent_cert, cfg->agent_key, cfg->ca_cert, auto_method);
+    SSL_CTX *ctx = os_ssl_keys(0, NULL, cfg->cert_cfg.ciphers, 
+        cfg->cert_cfg.agent_cert, cfg->cert_cfg.agent_key, cfg->cert_cfg.ca_cert, cfg->cert_cfg.auto_method);
     if (!ctx) {
         merror("Could not set up SSL connection! Check ceritification configuration.");
         return ENROLLMENT_WRONG_CONFIGURATION;
     }
 
     /* Connect via TCP */
-    int sock = OS_ConnectTCP((u_int16_t) port, ip_address, 0);
+    int sock = OS_ConnectTCP((u_int16_t) cfg->target_cfg.port, ip_address, 0);
     if (sock <= 0) {
-        merror("Unable to connect to %s:%d", ip_address, port);
+        merror("Unable to connect to %s:%d", ip_address, cfg->target_cfg.port);
+        SSL_CTX_free(ctx);
         return ENROLLMENT_CONNECTION_FAILURE;
     }
 
     /* Connect the SSL socket */
-    *ssl = SSL_new(ctx);
+    cfg->ssl = SSL_new(ctx);
     BIO * sbio = BIO_new_socket(sock, BIO_NOCLOSE);
-    SSL_set_bio(*ssl, sbio, sbio);
+    SSL_set_bio(cfg->ssl, sbio, sbio);
 
     ERR_clear_error();
-    int ret = SSL_connect(*ssl);
+    int ret = SSL_connect(cfg->ssl);
     if (ret <= 0) {
-        merror("SSL error (%d). Connection refused by the manager. Maybe the port specified is incorrect. Exiting.", SSL_get_error(*ssl, ret));
+        merror("SSL error (%d). Connection refused by the manager. Maybe the port specified is incorrect. Exiting.", SSL_get_error(cfg->ssl, ret));
         ERR_print_errors_fp(stderr);  // This function empties the error queue
         SSL_CTX_free(ctx);
         return ENROLLMENT_CONNECTION_FAILURE;
     }
 
-    minfo("Connected to %s:%d", ip_address, port);
+    minfo("Connected to %s:%d", ip_address, cfg->target_cfg.port);
 
-    _verify_ca_certificate(*ssl, cfg->ca_cert, hostname);
+    _verify_ca_certificate(cfg->ssl, cfg->cert_cfg.ca_cert, cfg->target_cfg.manager_name);
 
     SSL_CTX_free(ctx);
     return sock;
