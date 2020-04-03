@@ -102,15 +102,9 @@ int w_enrollment_connect(enrollment_cfg *cfg)
     return sock;
 }
 
-int w_enrollment_send_message(
-        SSL *ssl,
-        char* agent_name,
-        const char* password,
-        const char* centralized_group,
-        const char* sender_ip
-) {
+int w_enrollment_send_message(enrollment_cfg *cfg) {
     /* agent_name extraction */
-    if (agent_name == NULL) {
+    if (cfg->target_cfg.agent_name == NULL) {
         char *lhostname;
         os_malloc(513, lhostname);
         lhostname[512] = '\0';
@@ -118,33 +112,33 @@ int w_enrollment_send_message(
             merror("Unable to extract hostname. Custom agent name not set.");
             return -1;
         }
-        agent_name = lhostname;
+        cfg->target_cfg.agent_name = lhostname;
     }
-    minfo("Using agent name as: %s", agent_name);
+    minfo("Using agent name as: %s", cfg->target_cfg.agent_name);
 
     /* Message formation */
     char *buf;
     os_calloc(OS_SIZE_65536 + OS_SIZE_4096 + 1, sizeof(char), buf);
     buf[OS_SIZE_65536 + OS_SIZE_4096] = '\0';
 
-    if (password) {
-        snprintf(buf, 2048, "OSSEC PASS: %s OSSEC A:'%s'", password, agent_name);
+    if (cfg->cert_cfg.authpass) {
+        snprintf(buf, 2048, "OSSEC PASS: %s OSSEC A:'%s'", cfg->cert_cfg.authpass, cfg->target_cfg.agent_name);
     } else {
-        snprintf(buf, 2048, "OSSEC A:'%s'", agent_name);
+        snprintf(buf, 2048, "OSSEC A:'%s'", cfg->target_cfg.agent_name);
     }
 
-    if(centralized_group){
-        _concat_group(buf, centralized_group);
+    if(cfg->target_cfg.centralized_group){
+        _concat_group(buf, cfg->target_cfg.centralized_group);
     }
 
-    if(_concat_src_ip(buf, sender_ip)) {
+    if(_concat_src_ip(buf, cfg->target_cfg.sender_ip)) {
         os_free(buf);
         return -1;
     }
 
     /* Append new line character */
     strcat(buf,"\n");
-    int ret = SSL_write(ssl, buf, strlen(buf));
+    int ret = SSL_write(cfg->ssl, buf, strlen(buf));
     if (ret < 0) {
         merror("SSL write error (unable to send message.)");
         ERR_print_errors_fp(stderr);

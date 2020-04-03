@@ -290,7 +290,7 @@ int main(int argc, char **argv)
     
     if (sock >= 0) {
 
-        w_enrollment_send_message(cfg.ssl,cfg.target_cfg.agent_name,cfg.cert_cfg.authpass,cfg.target_cfg.centralized_group,cfg.target_cfg.sender_ip);
+        w_enrollment_send_message(&cfg);
         minfo("Send request to manager. Waiting for reply.");
 
         while (1) {

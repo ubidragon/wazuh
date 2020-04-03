@@ -92,20 +92,11 @@ int w_enrollment_connect(enrollment_cfg *cfg);
 
 /**
  * Sends initial enrollment message
- * @param ssl Pointer to the initialized connection with the manager
- * @param agent_name Agent name. If null local hostname will be used as name and stored in pointer
- * @param password Required password in case the enrollment process requires it
- * @param centralized_group if the agent belongs to a group. If null it asumes it does not belong to any group
- * @param sender_ip set sender IP, if it is null the manager will use the source ip of the message
+ * @param cfg Enrollment configuration sturcture
+ *      @see enrollment_cfg for details
  * @return   0 if message is sent successfully
  *          -1 if message cannot be sent
  */
-int w_enrollment_send_message(
-        SSL *ssl,
-        char* agent_name,
-        const char* password,
-        const char* centralized_group,
-        const char* sender_ip
-);
+int w_enrollment_send_message(enrollment_cfg *cfg);
 
 #endif
