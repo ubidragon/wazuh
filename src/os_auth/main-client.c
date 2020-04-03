@@ -72,8 +72,8 @@ int main(int argc, char **argv)
     gid_t gid = 0;
     const char *group = GROUPGLOBAL;
 #endif
-    w_enrollment_target_cfg target_cfg;
-    w_enrollment_cert_cfg cert_cfg;
+    w_enrollment_target target_cfg;
+    w_enrollment_cert cert_cfg;
     target_cfg.port = DEFAULT_PORT;
     cert_cfg.ciphers = strdup(DEFAULT_CIPHERS);
     int sock = 0, ret = 0;

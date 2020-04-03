@@ -209,10 +209,10 @@ void test_verificy_ca_certificate_valid_certificate(void **state) {
 /**********************************************/
 /********** w_enrollment_connect *******/
 void test_w_enrollment_connect_invalid_hostname(void **state) {
-    w_enrollment_target_cfg target_cfg;
+    w_enrollment_target target_cfg;
     target_cfg.manager_name = strdup("invalid_hostname");
     target_cfg.port = 1234;
-    w_enrollment_cert_cfg cert_cfg;
+    w_enrollment_cert cert_cfg;
     cert_cfg.ciphers = DEFAULT_CIPHERS;
     cert_cfg.auto_method = 0;
     w_enrollment_ctx *cfg = w_enrollment_init(&target_cfg, &cert_cfg);
@@ -226,10 +226,10 @@ void test_w_enrollment_connect_invalid_hostname(void **state) {
 }
 
 void test_w_enrollment_connect_could_not_setup(void **state) {
-    w_enrollment_target_cfg target_cfg;
+    w_enrollment_target target_cfg;
     target_cfg.manager_name = strdup("valid_hostname");
     target_cfg.port = 1234;
-    w_enrollment_cert_cfg cert_cfg;
+    w_enrollment_cert cert_cfg;
     cert_cfg.ciphers = DEFAULT_CIPHERS;
     cert_cfg.auto_method = 0;
     cert_cfg.agent_cert = strdup("CERT");
@@ -254,10 +254,10 @@ void test_w_enrollment_connect_could_not_setup(void **state) {
 }
 
 void test_w_enrollment_connect_socket_error(void **state) {
-    w_enrollment_target_cfg target_cfg;
+    w_enrollment_target target_cfg;
     target_cfg.manager_name = strdup("valid_hostname");
     target_cfg.port = 1234;
-    w_enrollment_cert_cfg cert_cfg;
+    w_enrollment_cert cert_cfg;
     cert_cfg.ciphers = DEFAULT_CIPHERS;
     cert_cfg.auto_method = 0;
     cert_cfg.agent_cert = strdup("CERT");
@@ -290,10 +290,10 @@ void test_w_enrollment_connect_socket_error(void **state) {
 }
 
 void test_w_enrollment_connect_SSL_connect_error(void **state) {
-    w_enrollment_target_cfg target_cfg;
+    w_enrollment_target target_cfg;
     target_cfg.manager_name = strdup("valid_hostname");
     target_cfg.port = 1234;
-    w_enrollment_cert_cfg cert_cfg;
+    w_enrollment_cert cert_cfg;
     cert_cfg.ciphers = DEFAULT_CIPHERS;
     cert_cfg.auto_method = 0;
     cert_cfg.agent_cert = strdup("CERT");
@@ -332,10 +332,10 @@ void test_w_enrollment_connect_SSL_connect_error(void **state) {
 }
 
 void test_w_enrollment_connect_success(void **state) {
-    w_enrollment_target_cfg target_cfg;
+    w_enrollment_target target_cfg;
     target_cfg.manager_name = strdup("valid_hostname");
     target_cfg.port = 1234;
-    w_enrollment_cert_cfg cert_cfg;
+    w_enrollment_cert cert_cfg;
     cert_cfg.ciphers = DEFAULT_CIPHERS;
     cert_cfg.auto_method = 0;
     cert_cfg.agent_cert = strdup("CERT");

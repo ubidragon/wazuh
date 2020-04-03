@@ -36,7 +36,7 @@ static const int ENTRY_NAME = 1;
 static const int ENTRY_IP = 2;
 static const int ENTRY_KEY = 3; 
 
-w_enrollment_ctx * w_enrollment_init(const w_enrollment_target_cfg *target, const w_enrollment_cert_cfg *cert) {
+w_enrollment_ctx * w_enrollment_init(const w_enrollment_target *target, const w_enrollment_cert *cert) {
     w_enrollment_ctx *cfg;
     os_malloc(sizeof(w_enrollment_ctx), cfg);
     // Copy constructor for const parameters

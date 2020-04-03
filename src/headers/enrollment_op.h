@@ -32,12 +32,12 @@
  * @brief Struct that defines the connection target
  * */
 typedef struct _enrollment_target_cfg {
-    char *manager_name;       /**> Manager's direction or ip address */
+    char *manager_name;        /**> Manager's direction or ip address */
     int port;                 /**> Manager's port                     */
     char *agent_name;         /**> (optional) Name of the agent. In case of NULL enrollment message will send local hostname */
     char *centralized_group;  /**> (optional) In case the agent belong to a group */
     char *sender_ip;          /**> (optional) IP adress or CIDR of the agent. In case of null the manager will use the source ip */
-} w_enrollment_target_cfg;
+} w_enrollment_target;
 
 /**
  * @brief Certificate configurations 
@@ -56,14 +56,14 @@ typedef struct _enrollment_cert_cfg {
     char *agent_key;   /**> Agent Key (null if not used) */
     char *ca_cert;     /**> CA Certificate to verificate server (null if not used) */
     int auto_method:1; /**> 0 for TLS v1.2 only (Default), 1 for Auto negotiate the most secure common SSL/TLS method with the client. */
-} w_enrollment_cert_cfg; 
+} w_enrollment_cert; 
 
 /**
  * @brief Strcture that handles all the enrollment configuration
  * */
 typedef struct _enrollment_ctx {
-    const w_enrollment_target_cfg *target_cfg;  /**> for details @see _enrollment_target_cfg */
-    const w_enrollment_cert_cfg *cert_cfg;      /**> for details @see _enrollment_cert_cfg */
+    const w_enrollment_target *target_cfg;  /**> for details @see _enrollment_target_cfg */
+    const w_enrollment_cert *cert_cfg;      /**> for details @see _enrollment_cert_cfg */
     SSL *ssl;                                   /**> will hold the connection instance with the manager */
     unsigned int enabled:1;
 } w_enrollment_ctx;
@@ -72,7 +72,7 @@ typedef struct _enrollment_ctx {
  * Initializes parameters of an w_enrollment_ctx structure based
  * on a target and certificate configurations
  * */
-w_enrollment_ctx * w_enrollment_init(const w_enrollment_target_cfg *target, const w_enrollment_cert_cfg *cert);
+w_enrollment_ctx * w_enrollment_init(const w_enrollment_target *target, const w_enrollment_cert *cert);
 
 /**
  * Frees parameers of an w_enrollment_ctx structure
