@@ -24,10 +24,11 @@ extern void mock_assert(const int result, const char* const expression,
     mock_assert((int)(expression), #expression, __FILE__, __LINE__);
 #endif
 
-static void _verify_ca_certificate(const SSL *ssl, const char *ca_cert, const char *hostname);
-static void _concat_group(char *buff, const char* centralized_group);
-static int _concat_src_ip(char *buff, const char* sender_ip);
-static void _process_agent_key(char *buffer);
+static void w_enrollment_verify_ca_certificate(const SSL *ssl, const char *ca_cert, const char *hostname);
+static void w_enrollment_concat_group(char *buff, const char* centralized_group);
+static int w_enrollment_concat_src_ip(char *buff, const char* sender_ip);
+static void w_enrollment_process_agent_key(char *buffer);
+static int w_enrollment_store_key_entry(const char* keys);
 
 /* Constants */
 static const int ENTRY_ID = 0;
@@ -94,7 +95,7 @@ int w_enrollment_connect(w_enrollment_ctx *cfg)
 
     minfo("Connected to %s:%d", ip_address, cfg->target_cfg->port);
 
-    _verify_ca_certificate(cfg->ssl, cfg->cert_cfg->ca_cert, cfg->target_cfg->manager_name);
+    w_enrollment_verify_ca_certificate(cfg->ssl, cfg->cert_cfg->ca_cert, cfg->target_cfg->manager_name);
 
     SSL_CTX_free(ctx);
     return sock;
@@ -128,10 +129,10 @@ int w_enrollment_send_message(w_enrollment_ctx *cfg) {
     }
 
     if(cfg->target_cfg->centralized_group){
-        _concat_group(buf, cfg->target_cfg->centralized_group);
+        w_enrollment_concat_group(buf, cfg->target_cfg->centralized_group);
     }
 
-    if(_concat_src_ip(buf, cfg->target_cfg->sender_ip)) {
+    if(w_enrollment_concat_src_ip(buf, cfg->target_cfg->sender_ip)) {
         os_free(buf);
         os_free(lhostname);
         return -1;
@@ -154,7 +155,7 @@ int w_enrollment_send_message(w_enrollment_ctx *cfg) {
     return 0;
 }
 
-int w_enrollment_process_response(w_enrollment_ctx *cfg) {
+void w_enrollment_process_response(w_enrollment_ctx *cfg) {
     char *buf;
     int ret;
     os_calloc(OS_SIZE_65536 + OS_SIZE_4096 + 1, sizeof(char), buf);
@@ -174,14 +175,32 @@ int w_enrollment_process_response(w_enrollment_ctx *cfg) {
             }
         } else if (strncmp(buf, "OSSEC K:'", 9) == 0) {
             minfo("Received response with agent key");
-            _process_agent_key(buf);
+            w_enrollment_process_agent_key(buf);
         }
     }
-    return 0;
 
+    switch (SSL_get_error(cfg->ssl, ret))
+    {
+    case SSL_ERROR_NONE:
+    case SSL_ERROR_ZERO_RETURN:
+        minfo("Connection closed.");
+        break;
+    default:
+        merror("SSL read (unable to receive message)");
+        break;
+    }
+
+    os_free(buf);
 }
 
-int w_enrollment_store_key_entry(const char* keys) {
+/**
+ * Stores entry string to the file containing the agent keys
+ * @param keys string cointaining the following information:
+ *      ENTRY_ID AGENT_NAME IP KEY
+ * @return 0 if key is store successfully 
+ *        -1 if there is an error
+ * */
+static int w_enrollment_store_key_entry(const char* keys) {
     FILE *fp;
     umask(0026);
     fp = fopen(KEYSFILE_PATH, "w");
@@ -200,7 +219,7 @@ int w_enrollment_store_key_entry(const char* keys) {
  * If the information is correct stores the key in the agent keys file
  * @param buffer
  * */
-static void _process_agent_key(char *buffer) {
+static void w_enrollment_process_agent_key(char *buffer) {
     char *keys = &buffer[9]; //Start of the information
     char *tmpstr = strchr(keys, '\'');
     if (!tmpstr) {
@@ -228,7 +247,7 @@ static void _process_agent_key(char *buffer) {
  * @param ca_cert cerificate to verify
  * @param hostname 
  * */
-static void _verify_ca_certificate(const SSL *ssl, const char *ca_cert, const char *hostname) {
+static void w_enrollment_verify_ca_certificate(const SSL *ssl, const char *ca_cert, const char *hostname) {
     assert(ssl != NULL);
     
     if (ca_cert) {
@@ -242,8 +261,13 @@ static void _verify_ca_certificate(const SSL *ssl, const char *ca_cert, const ch
     }
 }
 
-
-static void _concat_group(char *buff, const char* centralized_group) {
+/**
+ * @brief Concats the group part of the enrollment message
+ * 
+ * @param buff buffer where the IP section will be concatenated
+ * @param centralized_group name of the group that will be added
+ */
+static void w_enrollment_concat_group(char *buff, const char* centralized_group) {
     assert(buff != NULL); // buff should not be NULL.
     assert(centralized_group != NULL); 
 
@@ -255,13 +279,14 @@ static void _concat_group(char *buff, const char* centralized_group) {
 }
 
 /**
- * Concats the IP part of the enrollment message
+ * @brief Concats the IP part of the enrollment message
+ * 
  * @param buff buffer where the IP section will be concatenated
  * @param sender_ip Sender IP, if null it will be filled with "src"
  * @return 0 on success
  *        -1 if ip is invalid 
  */
-static int _concat_src_ip(char *buff, const char* sender_ip) {
+static int w_enrollment_concat_src_ip(char *buff, const char* sender_ip) {
     assert(buff != NULL); // buff should not be NULL.
 
     if(sender_ip){

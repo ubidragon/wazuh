@@ -101,15 +101,6 @@ int w_enrollment_connect(w_enrollment_ctx *cfg);
 int w_enrollment_send_message(w_enrollment_ctx *cfg);
 
 
-int w_enrollment_process_response(w_enrollment_ctx *cfg);
+void w_enrollment_process_response(w_enrollment_ctx *cfg);
 
-
-/**
- * Stores entry string to the file containing the agent keys
- * @param keys string cointaining the following information:
- *      ENTRY_ID AGENT_NAME IP KEY
- * @return 0 if key is store successfully 
- *        -1 if there is an error
- * */
-int w_enrollment_store_key_entry(const char* keys);
 #endif
