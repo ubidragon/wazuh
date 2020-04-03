@@ -27,55 +27,53 @@ extern void mock_assert(const int result, const char* const expression,
 static void _verify_ca_certificate(const SSL *ssl, const char *ca_cert, const char *hostname);
 static void _concat_group(char *buff, const char* centralized_group);
 static int _concat_src_ip(char *buff, const char* sender_ip);
+static void _process_agent_key(char *buffer);
 
-void w_enrollment_init(enrollment_cfg *cfg) {
-    cfg->target_cfg.manager_name = NULL;
-    cfg->target_cfg.port = 0;
-    cfg->target_cfg.agent_name = NULL;
-    cfg->target_cfg.centralized_group = NULL;
-    cfg->target_cfg.sender_ip = NULL;
-    cfg->cert_cfg.ciphers = DEFAULT_CIPHERS;
-    cfg->cert_cfg.authpass = NULL;
-    cfg->cert_cfg.agent_cert = NULL;
-    cfg->cert_cfg.agent_key = NULL;
-    cfg->cert_cfg.ca_cert = NULL;
-    cfg->cert_cfg.auto_method = 0;
+/* Constants */
+static const int ENTRY_ID = 0;
+static const int ENTRY_NAME = 1;
+static const int ENTRY_IP = 2;
+static const int ENTRY_KEY = 3; 
+
+w_enrollment_ctx * w_enrollment_init(const w_enrollment_target_cfg *target, const w_enrollment_cert_cfg *cert) {
+    w_enrollment_ctx *cfg;
+    os_malloc(sizeof(w_enrollment_ctx), cfg);
+    // Copy constructor for const parameters
+    w_enrollment_ctx init = {
+        .target_cfg = target,
+        .cert_cfg = cert
+    };
+    memcpy(cfg, &init, sizeof(w_enrollment_ctx));
+    cfg->enabled = 1;
     cfg->ssl = NULL;
+    return cfg;
 }
 
-void w_enrollment_destroy(enrollment_cfg *cfg) {
-    os_free(cfg->target_cfg.manager_name);
-    os_free(cfg->target_cfg.agent_name);
-    os_free(cfg->target_cfg.centralized_group);
-    os_free(cfg->target_cfg.sender_ip);
-    os_free(cfg->cert_cfg.ciphers);
-    os_free(cfg->cert_cfg.authpass);
-    os_free(cfg->cert_cfg.agent_cert);
-    os_free(cfg->cert_cfg.agent_key);
-    os_free(cfg->cert_cfg.ca_cert);
+void w_enrollment_destroy(w_enrollment_ctx *cfg) {
+    os_free(cfg);
 }
 
-int w_enrollment_connect(enrollment_cfg *cfg) 
+int w_enrollment_connect(w_enrollment_ctx *cfg) 
 {
-    const char *ip_address = OS_GetHost(cfg->target_cfg.manager_name, 3);
+    const char *ip_address = OS_GetHost(cfg->target_cfg->manager_name, 3);
     /* Translate hostname to an ip_adress */
     if (!ip_address) {
-        merror("Could not resolve hostname: %s\n", cfg->target_cfg.manager_name);
+        merror("Could not resolve hostname: %s\n", cfg->target_cfg->manager_name);
         return ENROLLMENT_WRONG_CONFIGURATION;
     }
 
     /* Start SSL */
-    SSL_CTX *ctx = os_ssl_keys(0, NULL, cfg->cert_cfg.ciphers, 
-        cfg->cert_cfg.agent_cert, cfg->cert_cfg.agent_key, cfg->cert_cfg.ca_cert, cfg->cert_cfg.auto_method);
+    SSL_CTX *ctx = os_ssl_keys(0, NULL, cfg->cert_cfg->ciphers, 
+        cfg->cert_cfg->agent_cert, cfg->cert_cfg->agent_key, cfg->cert_cfg->ca_cert, cfg->cert_cfg->auto_method);
     if (!ctx) {
         merror("Could not set up SSL connection! Check ceritification configuration.");
         return ENROLLMENT_WRONG_CONFIGURATION;
     }
 
     /* Connect via TCP */
-    int sock = OS_ConnectTCP((u_int16_t) cfg->target_cfg.port, ip_address, 0);
+    int sock = OS_ConnectTCP((u_int16_t) cfg->target_cfg->port, ip_address, 0);
     if (sock <= 0) {
-        merror("Unable to connect to %s:%d", ip_address, cfg->target_cfg.port);
+        merror("Unable to connect to %s:%d", ip_address, cfg->target_cfg->port);
         SSL_CTX_free(ctx);
         return ENROLLMENT_CONNECTION_FAILURE;
     }
@@ -94,45 +92,48 @@ int w_enrollment_connect(enrollment_cfg *cfg)
         return ENROLLMENT_CONNECTION_FAILURE;
     }
 
-    minfo("Connected to %s:%d", ip_address, cfg->target_cfg.port);
+    minfo("Connected to %s:%d", ip_address, cfg->target_cfg->port);
 
-    _verify_ca_certificate(cfg->ssl, cfg->cert_cfg.ca_cert, cfg->target_cfg.manager_name);
+    _verify_ca_certificate(cfg->ssl, cfg->cert_cfg->ca_cert, cfg->target_cfg->manager_name);
 
     SSL_CTX_free(ctx);
     return sock;
 }
 
-int w_enrollment_send_message(enrollment_cfg *cfg) {
+int w_enrollment_send_message(w_enrollment_ctx *cfg) {
+    char *lhostname = NULL;
     /* agent_name extraction */
-    if (cfg->target_cfg.agent_name == NULL) {
-        char *lhostname;
+    if (cfg->target_cfg->agent_name == NULL) {
         os_malloc(513, lhostname);
         lhostname[512] = '\0';
         if (gethostname(lhostname, 512 - 1) != 0) {
             merror("Unable to extract hostname. Custom agent name not set.");
+            os_free(lhostname);
             return -1;
         }
-        cfg->target_cfg.agent_name = lhostname;
+    } else {
+        lhostname = cfg->target_cfg->agent_name;
     }
-    minfo("Using agent name as: %s", cfg->target_cfg.agent_name);
+    minfo("Using agent name as: %s", lhostname);
 
     /* Message formation */
     char *buf;
     os_calloc(OS_SIZE_65536 + OS_SIZE_4096 + 1, sizeof(char), buf);
     buf[OS_SIZE_65536 + OS_SIZE_4096] = '\0';
 
-    if (cfg->cert_cfg.authpass) {
-        snprintf(buf, 2048, "OSSEC PASS: %s OSSEC A:'%s'", cfg->cert_cfg.authpass, cfg->target_cfg.agent_name);
+    if (cfg->cert_cfg->authpass) {
+        snprintf(buf, 2048, "OSSEC PASS: %s OSSEC A:'%s'", cfg->cert_cfg->authpass, lhostname);
     } else {
-        snprintf(buf, 2048, "OSSEC A:'%s'", cfg->target_cfg.agent_name);
+        snprintf(buf, 2048, "OSSEC A:'%s'", lhostname);
     }
 
-    if(cfg->target_cfg.centralized_group){
-        _concat_group(buf, cfg->target_cfg.centralized_group);
+    if(cfg->target_cfg->centralized_group){
+        _concat_group(buf, cfg->target_cfg->centralized_group);
     }
 
-    if(_concat_src_ip(buf, cfg->target_cfg.sender_ip)) {
+    if(_concat_src_ip(buf, cfg->target_cfg->sender_ip)) {
         os_free(buf);
+        os_free(lhostname);
         return -1;
     }
 
@@ -143,12 +144,82 @@ int w_enrollment_send_message(enrollment_cfg *cfg) {
         merror("SSL write error (unable to send message.)");
         ERR_print_errors_fp(stderr);
         os_free(buf);
+        os_free(lhostname);
         return -1;
     }
     minfo("Request sent to manager");
 
     os_free(buf);
+    os_free(lhostname);
     return 0;
+}
+
+int w_enrollment_process_response(w_enrollment_ctx *cfg) {
+    char *buf;
+    int ret;
+    os_calloc(OS_SIZE_65536 + OS_SIZE_4096 + 1, sizeof(char), buf);
+    buf[OS_SIZE_65536 + OS_SIZE_4096] = '\0';
+
+    minfo("Waiting for manager reply");
+
+    while(ret = SSL_read(cfg->ssl, buf, OS_SIZE_65536 + OS_SIZE_4096), ret > 0) {
+        buf[ret] = '\0';
+        if (strlen(buf) > 7 && !strncmp(buf, "ERROR: ", 7)) { 
+            // Process error message
+            char *tmpbuf;
+            tmpbuf = strchr(buf, ' ');
+            tmpbuf++;
+            if (tmpbuf && tmpbuf[0] != '\0') {
+                merror("%s (from manager)", tmpbuf);
+            }
+        } else if (strncmp(buf, "OSSEC K:'", 9) == 0) {
+            minfo("Received response with agent key");
+            _process_agent_key(buf);
+        }
+    }
+    return 0;
+
+}
+
+int w_enrollment_store_key_entry(const char* keys) {
+    FILE *fp;
+    umask(0026);
+    fp = fopen(KEYSFILE_PATH, "w");
+
+    if (!fp) {
+        merror("Unable to open key file: %s", KEYSFILE_PATH);
+        return -1;
+    }
+    fprintf(fp, "%s\n", keys);
+    fclose(fp);
+    return 0;
+}
+
+/**
+ * Process string that contains agent information.
+ * If the information is correct stores the key in the agent keys file
+ * @param buffer
+ * */
+static void _process_agent_key(char *buffer) {
+    char *keys = &buffer[9]; //Start of the information
+    char *tmpstr = strchr(keys, '\'');
+    if (!tmpstr) {
+        // No end of string found
+        merror("Invalid keys format received.");
+        return;
+    }
+    *tmpstr = '\0';
+    char **entrys = OS_StrBreak(' ', keys, 4);
+    if (OS_IsValidID(entrys[ENTRY_ID]) && OS_IsValidName(entrys[ENTRY_NAME]) &&
+            OS_IsValidIP(entrys[ENTRY_IP], NULL) && !OS_IsValidName(entrys[ENTRY_KEY])) {
+        if( !w_enrollment_store_key_entry(keys) ) {
+            // Key was able to store
+            minfo("Valid key created. Finished.");
+        }
+    } else {
+        merror("One of the received key parameters does not have a valid format.");
+        return;
+    }
 }
 
 /**

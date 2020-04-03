@@ -1096,7 +1096,7 @@ crypto_o := ${crypto_blowfish_o} \
 
 #### libwazuh #########
 
-libwazuh.a: ${config_o} ${wmodules_dep} ${crypto_o} ${shared_o} ${os_net_o} ${os_regex_o} ${os_xml_o} ${os_zlib_o} ${WINDOWS_SHARED_WRAPPERS} os_auth/ssl.o os_auth/check_cert.o
+libwazuh.a: ${config_o} ${wmodules_dep} ${crypto_o} ${shared_o} ${os_net_o} ${os_regex_o} ${os_xml_o} ${os_zlib_o} ${manage_agents} ${WINDOWS_SHARED_WRAPPERS} os_auth/ssl.o os_auth/check_cert.o addagent/validate.o
 	${OSSEC_LINK} $@ $^
 	${OSSEC_RANLIB} $@
 
